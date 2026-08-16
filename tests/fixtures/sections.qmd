@@ -1,0 +1,29 @@
+---
+title: "Sections"
+format: revealjs
+filters:
+  - title-slides
+title-slides: true
+---
+
+## Setting out
+
+first
+
+---
+
+second
+
+# Part two
+
+---
+
+after the section
+
+## Named again
+
+third
+
+---
+
+fourth

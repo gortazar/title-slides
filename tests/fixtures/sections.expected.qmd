@@ -1,0 +1,30 @@
+---
+title: "Sections"
+format: revealjs
+---
+
+## Setting out
+
+first
+
+---
+
+## Setting out
+
+second
+
+# Part two
+
+---
+
+after the section
+
+## Named again
+
+third
+
+---
+
+## Named again
+
+fourth

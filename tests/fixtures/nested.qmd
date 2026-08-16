@@ -1,0 +1,39 @@
+---
+title: "Nested"
+format: revealjs
+filters:
+  - title-slides
+title-slides: true
+---
+
+## Introduction
+
+::: {.callout-note}
+A note.
+
+---
+
+Still in the note.
+:::
+
+---
+
+a continuation
+
+---
+
+## Explicitly titled
+
+> quoted
+
+---
+
+Some content.
+
+::: {.notes}
+Speaker notes.
+
+---
+
+More notes.
+:::

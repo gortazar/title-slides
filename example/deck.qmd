@@ -1,0 +1,59 @@
+---
+title: "title-slides"
+subtitle: "Carrying a title across continuation slides"
+format: revealjs
+filters:
+  - title-slides
+title-slides: true
+---
+
+## Introduction
+
+A slide started by a `##` heading is titled, as always.
+
+- the heading is written once
+- it is what the extension carries onward
+
+---
+
+This slide was started by a `---`, with no heading of its own.
+
+It is titled anyway: the extension carried `Introduction` onto it.
+
+---
+
+And so is this one. The title keeps coming until a new `##` appears.
+
+## Writing it
+
+Two keys in the frontmatter:
+
+``` yaml
+filters:
+  - title-slides
+title-slides: true
+```
+
+---
+
+Continuations of `Writing it` now carry that title instead.
+
+# Details
+
+A `#` section slide clears the carried title.
+
+---
+
+So this slide, right after the section, has no title at all.
+
+## Identifiers
+
+Each continuation gets its own identifier, so links keep working.
+
+---
+
+And carries a class you can style or hide:
+
+``` css
+.title-slides-continuation h2 { opacity: 0.6; }
+```

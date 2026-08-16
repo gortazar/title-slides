@@ -1,0 +1,24 @@
+---
+title: "Basic"
+format: revealjs
+---
+
+## Introduction
+
+blabla
+
+---
+
+## Introduction
+
+more blabla
+
+---
+
+## Introduction
+
+still more blabla
+
+## Conclusion
+
+that is all

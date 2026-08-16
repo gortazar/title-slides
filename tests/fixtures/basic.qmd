@@ -1,0 +1,23 @@
+---
+title: "Basic"
+format: revealjs
+filters:
+  - title-slides
+title-slides: true
+---
+
+## Introduction
+
+blabla
+
+---
+
+more blabla
+
+---
+
+still more blabla
+
+## Conclusion
+
+that is all
