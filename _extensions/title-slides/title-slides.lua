@@ -5,6 +5,39 @@
 -- block list, remember the most recent slide-level heading, and insert a copy of it
 -- after every rule that does not already introduce a title of its own.
 
+-- Resolved from this file's own path rather than PANDOC_SCRIPT_FILE, so that the
+-- sibling module is found whether pandoc is running the filter or a test is loading it.
+local setext = dofile(debug.getinfo(1, "S").source:sub(2):gsub("[^/\\]*$", "") .. "setext.lua")
+
+--- Warn about `blabla` immediately followed by `---`, which markdown reads as a heading.
+-- The source is the only place this is visible. Prefer the document Quarto started from:
+-- what pandoc is reading is an intermediate copy with the frontmatter stripped, so its
+-- line numbers would not match the file the author has to edit.
+local function warn_about_setext_headings()
+  local sources = {}
+  if quarto and quarto.doc and quarto.doc.input_file then
+    sources[1] = quarto.doc.input_file
+  else
+    sources = PANDOC_STATE and PANDOC_STATE.input_files or {}
+  end
+
+  for _, path in ipairs(sources) do
+    local handle = io.open(path, "r")
+    if handle then
+      local text = handle:read("a")
+      handle:close()
+      for _, finding in ipairs(setext.find(text)) do
+        local message = setext.message(path, finding)
+        if quarto and quarto.log and quarto.log.warning then
+          quarto.log.warning(message)
+        else
+          io.stderr:write("[WARNING] title-slides: ", message, "\n")
+        end
+      end
+    end
+  end
+end
+
 --- Is the extension switched on for this document?
 -- Under Quarto the flag is available through `quarto.metadata.get`; under a bare
 -- `pandoc --lua-filter` there is no `quarto` global, so fall back to the raw metadata.
@@ -123,6 +156,7 @@ return {
   {
     Pandoc = function(doc)
       if not enabled(doc.meta) then return nil end
+      warn_about_setext_headings()
       doc.blocks = carry_titles(doc.blocks, slide_level_of(doc.meta), taken_identifiers(doc))
       return doc
     end,
