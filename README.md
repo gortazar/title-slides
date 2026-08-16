@@ -3,7 +3,7 @@
 Carry the last `##` title onto untitled continuation slides in a Quarto presentation.
 
 ```sh
-quarto add gortazar/title-slides
+quarto add gortazar/title-slides@v0.1
 ```
 
 ## What it does
@@ -129,7 +129,9 @@ left alone; only top-level rules start slides.
 **Supported format: `revealjs`.** That is where `---` breaks and `##` titles behave as
 described.
 
-**Quarto 1.4 or newer.** The test suite pins and runs against Quarto 1.8.27.
+**Quarto version.** The extension declares `quarto-required: >=1.4.0`, and falls back to
+reading plain metadata where `quarto.metadata.get` is not available. It is tested against
+Quarto 1.8.27, which is what the flake pins and what CI runs.
 
 ## Development
 
