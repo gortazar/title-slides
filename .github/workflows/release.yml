@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v27
+        with:
+          extra_nix_config: "experimental-features = nix-command flakes"
+
+      # Nothing ships that has not passed the suite the tag was cut from.
+      - run: nix flake check --print-build-logs
+
+      # The artefact is the extension as `quarto add` installs it: unzip it into a
+      # project and _extensions/title-slides is in place, no build step anywhere.
+      - name: Package the extension
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          nix build .#default
+          mkdir -p dist
+          cp -rL result/_extensions dist/_extensions
+          (cd dist && zip -r "../title-slides-$version.zip" _extensions)
+          unzip -l "title-slides-$version.zip"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" \
+            --title "title-slides $GITHUB_REF_NAME" \
+            --notes "Install with:
+
+    quarto add gortazar/title-slides@$GITHUB_REF_NAME
+
+Or download \`title-slides-$version.zip\` and unzip it in your project, which puts
+\`_extensions/title-slides\` in place.
+
+See the README for what the extension does and how to switch it on." \
+            "title-slides-$version.zip"

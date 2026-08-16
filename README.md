@@ -57,6 +57,17 @@ more blabla
 still more
 ````
 
+## What it looks like
+
+The second slide of `example/deck.qmd`, which is started by a `---` and has no heading
+of its own. With `title-slides: true` it carries the title of the slide before it:
+
+![A continuation slide titled "Introduction"](screenshots/with-title-slides.png)
+
+The same slide of the same deck with the extension switched off:
+
+![The same slide, with no title at all](screenshots/without-title-slides.png)
+
 ## Usage
 
 Two keys in the frontmatter, both required:
@@ -118,12 +129,17 @@ left alone; only top-level rules start slides.
 **Supported format: `revealjs`.** That is where `---` breaks and `##` titles behave as
 described.
 
-**Quarto 1.4 or newer.**
+**Quarto 1.4 or newer.** The test suite pins and runs against Quarto 1.8.27.
 
 ## Development
 
 ```sh
-nix develop           # quarto, pandoc and the test runners
-tests/run-unit.sh     # unit tests over the AST, under `pandoc lua`
-nix flake check       # everything CI runs
+nix develop            # the pinned quarto, its pandoc, and the test runners
+tests/run-unit.sh      # unit tests over the AST, under `pandoc lua`
+tests/run-golden.sh    # filtered deck vs. the same deck written out by hand
+tests/run-smoke.sh     # render example/deck.qmd and check the slides that come out
+nix flake check        # everything CI runs
 ```
+
+`example/deck.qmd` is a working deck using the extension; the screenshots above come
+from it.
