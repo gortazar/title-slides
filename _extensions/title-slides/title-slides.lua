@@ -21,6 +21,24 @@ local function enabled(meta)
   return value ~= "false"
 end
 
+--- Which heading level starts a slide.
+-- Quarto resolves the document's `slide-level` and hands it to the writer, so the
+-- writer options are the authoritative answer — including the `slide-level: 0` case,
+-- where headings stop starting slides altogether and rules are the only break. Under a
+-- bare `pandoc --lua-filter` there are no writer options yet, so fall back to the
+-- metadata and finally to pandoc's own default of 2.
+local function slide_level_of(meta)
+  if PANDOC_WRITER_OPTIONS and type(PANDOC_WRITER_OPTIONS.slide_level) == "number" then
+    return PANDOC_WRITER_OPTIONS.slide_level
+  end
+  local from_meta = meta["slide-level"]
+  if from_meta ~= nil then
+    local level = tonumber(pandoc.utils.stringify(from_meta))
+    if level ~= nil then return level end
+  end
+  return 2
+end
+
 local function is_header(block, max_level)
   return block ~= nil and block.t == "Header" and block.level <= max_level
 end
@@ -105,7 +123,7 @@ return {
   {
     Pandoc = function(doc)
       if not enabled(doc.meta) then return nil end
-      doc.blocks = carry_titles(doc.blocks, 2, taken_identifiers(doc))
+      doc.blocks = carry_titles(doc.blocks, slide_level_of(doc.meta), taken_identifiers(doc))
       return doc
     end,
   },

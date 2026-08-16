@@ -90,6 +90,13 @@ links and the reveal menu keep working, and carries the class
 
 Cross-references to the original heading still point at the original slide.
 
+`slide-level` is honoured: set `slide-level: 1` and it is `#` headings that are carried,
+`slide-level: 3` and it is `###`. With `slide-level: 0` no heading starts a slide at all,
+so there is no slide title to carry and the filter does nothing.
+
+Attributes written on the original heading — `## Intro {.smaller background-color="red"}`
+— are **not** copied onto continuations; only the text and the level are.
+
 ## Caveats
 
 **Leave a blank line before `---`.** In markdown, a line of text followed immediately by
