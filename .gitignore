@@ -1,0 +1,6 @@
+result
+result-*
+.quarto/
+_site/
+tests/out/
+*_files/

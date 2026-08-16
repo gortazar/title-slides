@@ -1,0 +1,122 @@
+# title-slides
+
+Carry the last `##` title onto untitled continuation slides in a Quarto presentation.
+
+```sh
+quarto add gortazar/title-slides
+```
+
+## What it does
+
+In a Quarto deck, a slide is started either by a heading or by a horizontal rule `---`.
+A rule gives you a slide with no title, so a long section forces a choice: repeat
+`## Introduction` by hand on every continuation slide, or let those slides render
+untitled.
+
+`title-slides` removes the choice. Write this:
+
+````markdown
+---
+title: "My deck"
+format: revealjs
+filters:
+  - title-slides
+title-slides: true
+---
+
+## Introduction
+
+blabla
+
+---
+
+more blabla
+
+---
+
+still more
+````
+
+and get the deck you would have got by typing the title out three times:
+
+````markdown
+## Introduction
+
+blabla
+
+---
+
+## Introduction
+
+more blabla
+
+---
+
+## Introduction
+
+still more
+````
+
+## Usage
+
+Two keys in the frontmatter, both required:
+
+- `filters: [title-slides]` loads the extension,
+- `title-slides: true` switches it on.
+
+Installing the extension therefore never changes how an existing document renders.
+
+## The rule, exactly
+
+Let *S* be the slide level (`slide-level` if you set it, otherwise 2). Walking the
+top-level blocks in order, the filter tracks `current`, the most recent heading of
+level *S*:
+
+- a heading of level *S* sets `current`;
+- a heading of a level **above** *S* — a section slide, `#` by default — clears it, so a
+  section's title never leaks into what follows;
+- for each top-level `---`: if the next block is a heading of level *S* or above, the
+  slide already has its own title and is left alone. Otherwise, if `current` is set and
+  some content follows, a copy of `current` is inserted right after the rule.
+
+The inserted heading keeps the original's text and level. It gets a fresh identifier
+derived from the original (`introduction`, then `introduction-cont-1`, …) so in-deck
+links and the reveal menu keep working, and carries the class
+`title-slides-continuation` so you can style or hide it:
+
+```css
+.title-slides-continuation h2 { opacity: 0.6; }
+```
+
+Cross-references to the original heading still point at the original slide.
+
+## Caveats
+
+**Leave a blank line before `---`.** In markdown, a line of text followed immediately by
+`---` is a *setext heading*, not a horizontal rule:
+
+```markdown
+blabla
+---
+```
+
+parses as a level-2 heading titled "blabla" — the rule never reaches the filter, and you
+get a slide titled `blabla` instead of a continuation slide. The filter warns when it
+finds one in a `title-slides: true` document.
+
+**Rules nested inside content are content.** A `---` inside a `:::` div, a `.columns`
+block, a callout, speaker notes or a block quote is an ordinary horizontal rule and is
+left alone; only top-level rules start slides.
+
+**Supported format: `revealjs`.** That is where `---` breaks and `##` titles behave as
+described.
+
+**Quarto 1.4 or newer.**
+
+## Development
+
+```sh
+nix develop           # quarto, pandoc and the test runners
+tests/run-unit.sh     # unit tests over the AST, under `pandoc lua`
+nix flake check       # everything CI runs
+```
