@@ -36,14 +36,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="${GITHUB_REF_NAME#v}"
+          notes="$(printf '%s\n' \
+            "Install with:" \
+            "" \
+            "    quarto add gortazar/title-slides@$GITHUB_REF_NAME" \
+            "" \
+            "Then switch it on in the document, with \`filters: [title-slides]\` and" \
+            "\`title-slides: true\` in the frontmatter." \
+            "" \
+            "The attached zip is the same extension for unzipping straight into a" \
+            "project, which puts \`_extensions/title-slides\` in place.")"
           gh release create "$GITHUB_REF_NAME" \
             --title "title-slides $GITHUB_REF_NAME" \
-            --notes "Install with:
-
-    quarto add gortazar/title-slides@$GITHUB_REF_NAME
-
-Or download \`title-slides-$version.zip\` and unzip it in your project, which puts
-\`_extensions/title-slides\` in place.
-
-See the README for what the extension does and how to switch it on." \
+            --notes "$notes" \
             "title-slides-$version.zip"
