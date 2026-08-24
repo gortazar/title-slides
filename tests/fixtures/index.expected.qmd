@@ -1,0 +1,40 @@
+---
+title: "Three parts"
+format: revealjs
+---
+
+## Three parts
+
+- [**Beginnings**]{.title-slides-index-current}
+- Middles
+- Ends
+
+# Beginnings
+
+## First slide
+
+a
+
+## Three parts
+
+- Beginnings
+- [**Middles**]{.title-slides-index-current}
+- Ends
+
+# Middles
+
+## Second slide
+
+b
+
+## Three parts
+
+- Beginnings
+- Middles
+- [**Ends**]{.title-slides-index-current}
+
+# Ends
+
+## Third slide
+
+c

@@ -1,5 +1,7 @@
 -- Print the outline of a rendered revealjs deck: one line per slide, giving its level,
--- whether the extension marked it as a continuation, and its title.
+-- what kind of slide it is — one the author wrote, a continuation the extension titled,
+-- or an index it injected — and its title. Index slides also report the entry that came
+-- out emboldened, which is the part of `show-index` worth asserting on.
 --
 -- Usage: pandoc lua deck-outline.lua deck.html
 
@@ -28,9 +30,28 @@ for i, opening in ipairs(openings) do
   local classes = opening.tag:match('class="([^"]*)"') or ""
   if classes:match("slide") then
     local level = classes:match("level(%d)") or "-"
-    local kind = classes:match("title%-slides%-continuation") and "continuation" or "slide"
+    local kind = "slide"
+    if classes:match("title%-slides%-continuation") then
+      kind = "continuation"
+    elseif classes:match("title%-slides%-index") then
+      kind = "index"
+    end
+
     local title = body:match("<h%d[^>]*>(.-)</h%d>") or ""
     title = title:gsub("<[^>]*>", ""):gsub("%s+", " "):gsub("^ ", ""):gsub(" $", "")
-    print(string.format("%s %s %s", level, kind, title))
+
+    if kind == "index" then
+      -- Which entry is bold is the whole point of an index slide, so name it, and count
+      -- them so a second bold entry cannot slip by unnoticed.
+      local current, bolds = nil, 0
+      for entry in body:gmatch("<strong>(.-)</strong>") do
+        bolds = bolds + 1
+        current = current or entry:gsub("<[^>]*>", "")
+      end
+      print(string.format("%s %s %s -> %s (%d bold)", level, kind, title,
+        current or "(none)", bolds))
+    else
+      print(string.format("%s %s %s", level, kind, title))
+    end
   end
 end

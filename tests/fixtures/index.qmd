@@ -1,0 +1,25 @@
+---
+title: "Three parts"
+format: revealjs
+filters:
+  - title-slides
+show-index: true
+---
+
+# Beginnings
+
+## First slide
+
+a
+
+# Middles
+
+## Second slide
+
+b
+
+# Ends
+
+## Third slide
+
+c

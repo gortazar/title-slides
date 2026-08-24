@@ -4,8 +4,12 @@
 -- Two things are deliberately normalised away. Identifiers, because a continuation is
 -- `introduction-cont-1` where a hand-written duplicate heading is `introduction-1` —
 -- different names for the same slide, and the whole point of the scheme is that they do
--- not collide. And the two marker classes the extension adds, which are what a reader
--- would use to tell a continuation from a hand-typed repeat.
+-- not collide. And the marker classes the extension puts on the slides it generates,
+-- which are what a reader would use to tell a generated slide from a hand-typed one.
+--
+-- `title-slides-index-current` is *not* stripped: which entry of an index is the current
+-- one is the feature, so the expected fixtures write that span out by hand and it has to
+-- match.
 --
 -- Usage: pandoc lua normalise-deck.lua deck.html
 
@@ -33,7 +37,8 @@ slides = slides:gsub(' id="[^"]*"', "")
 slides = slides:gsub('class="([^"]*)"', function(classes)
   local kept = {}
   for class in classes:gmatch("%S+") do
-    if class ~= "title-slides-continuation" and class ~= "unlisted" then
+    if class ~= "title-slides-continuation" and class ~= "title-slides-index"
+      and class ~= "unlisted" then
       kept[#kept + 1] = class
     end
   end

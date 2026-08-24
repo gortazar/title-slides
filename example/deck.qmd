@@ -1,11 +1,14 @@
 ---
 title: "title-slides"
-subtitle: "Carrying a title across continuation slides"
+subtitle: "Carried titles, and an index before every section"
 format: revealjs
 filters:
   - title-slides
 title-slides: true
+show-index: true
 ---
+
+# What it does
 
 ## Introduction
 

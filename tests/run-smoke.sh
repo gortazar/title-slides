@@ -38,4 +38,46 @@ if [ "$continuations" -lt 1 ]; then
 fi
 echo "  ok   $continuations continuation slides carry a title"
 
+# One index slide per section, and no more.
+sections="$(grep -c '^1 slide ' "$work/outline.txt" || true)"
+indexes="$(grep -c '^2 index ' "$work/outline.txt" || true)"
+if [ "$indexes" -ne "$sections" ]; then
+    echo "  FAIL $sections sections but $indexes index slides" >&2
+    exit 1
+fi
+if [ "$indexes" -lt 1 ]; then
+    echo "  FAIL no index slide was produced" >&2
+    exit 1
+fi
+echo "  ok   $indexes index slides, one per section"
+
+# Exactly one entry emboldened on each, and it is the section that comes next: every
+# index line names its current entry, and the line after it is that section's slide.
+if grep '^2 index ' "$work/outline.txt" | grep -qv '(1 bold)$'; then
+    echo "  FAIL an index slide does not have exactly one bold entry" >&2
+    grep '^2 index ' "$work/outline.txt" | grep -v '(1 bold)$' >&2
+    exit 1
+fi
+expected=""
+while IFS= read -r line; do
+    if [ -n "$expected" ]; then
+        if [ "$line" != "1 slide $expected" ]; then
+            echo "  FAIL an index emboldened \"$expected\" but \"$line\" follows it" >&2
+            exit 1
+        fi
+        expected=""
+    fi
+    case "$line" in
+        "2 index "*)
+            expected="${line#* -> }"
+            expected="${expected% (*}"
+            ;;
+    esac
+done < "$work/outline.txt"
+if [ -n "$expected" ]; then
+    echo "  FAIL an index slide is the last slide, with no section after it" >&2
+    exit 1
+fi
+echo "  ok   each index emboldens exactly the section it precedes"
+
 echo "smoke tests passed"
