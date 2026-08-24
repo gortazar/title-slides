@@ -8,7 +8,7 @@ Two habits from beamer, brought to a Quarto deck:
 The two are independent — switch on either, or both.
 
 ```sh
-quarto add gortazar/title-slides@v0.2
+quarto add gortazar/title-slides@v0.3
 ```
 
 ## Carried titles
@@ -213,6 +213,62 @@ described.
 reading plain metadata where `quarto.metadata.get` is not available. It is tested against
 Quarto 1.8.27, which is what the flake pins and what CI runs.
 
+## Troubleshooting
+
+### "Could not run … title-slides as a JSON filter"
+
+```
+Could not run /…/Material/title-slides as a JSON filter.
+Please make sure the file exists and is executable.
+Did you intend 'title-slides' as a Lua filter in an extension?
+```
+
+**This does not mean the filter is broken. It means Quarto never found the extension**, so
+it fell back to reading `filters: [title-slides]` as a path to an executable, resolved it
+against the document's own directory, and failed. The extension's code never ran.
+
+Check what Quarto can see, **from the directory holding the `.qmd`**:
+
+```sh
+cd path/to/the/folder/with/your/deck
+quarto list extensions
+```
+
+If that says `No extensions are installed in this directory`, that is the whole problem.
+Install it there:
+
+```sh
+quarto add gortazar/title-slides@v0.3
+```
+
+You should end up with `_extensions/gortazar/title-slides/` **next to your document**, and
+`quarto list extensions` should report `gortazar/title-slides`.
+
+**Quarto does not search upwards for `_extensions/`.** An extension installed in the
+parent folder is not found, and neither is one at the root of a `_quarto.yml` project when
+the document lives in a subfolder — both produce exactly the error above. This is the
+usual cause: `quarto add` was run in a different folder from the one that holds the deck,
+which is easy to do in a tree of course material with a folder per topic.
+
+Two things that are *not* the cause, checked against the real deck that prompted this
+section: spaces and accents in the path are harmless, and a Quarto too old for the
+extension reports itself plainly instead —
+
+```
+ERROR: The extension Title Slides is incompatible with this quarto version.
+```
+
+### The filter runs but nothing changes
+
+Loading the extension is not enough; each feature needs its key. `filters: [title-slides]`
+alone does nothing — add `title-slides: true`, `show-index: true`, or both.
+
+If `show-index: true` produces no index slides, the deck probably has no sections: an index
+goes before each `#` heading, and a deck of only `##` slides has none. Likewise a deck with
+no top-level `---` has nothing for `title-slides: true` to carry a title onto. Both keys on
+such a deck are simply inert — `tests/fixtures/real-deck/` is exactly that case, kept as a
+test.
+
 ## Development
 
 ```sh
@@ -220,7 +276,9 @@ nix develop            # the pinned quarto, its pandoc, and the test runners
 tests/run-unit.sh      # unit tests over the AST, under `pandoc lua`
 tests/run-golden.sh    # filtered deck vs. the same deck written out by hand
 tests/run-smoke.sh     # render example/deck.qmd and check the slides that come out
-nix flake check        # everything CI runs
+tests/run-real-deck.sh # a real lecture deck, rendered the way a user renders one
+tests/run-install.sh   # install the published release and render through it (needs network)
+nix flake check        # everything CI runs bar the install test, which needs a network
 ```
 
 `example/deck.qmd` is a working deck using both features; every screenshot above comes
