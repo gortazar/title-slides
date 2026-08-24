@@ -14,3 +14,11 @@ jobs:
         with:
           extra_nix_config: "experimental-features = nix-command flakes"
       - run: nix flake check --print-build-logs
+
+      # Installing from the published release needs the network, which the nix build
+      # sandbox does not have — so this one runs as its own step rather than as a flake
+      # check. It asserts that `quarto add` lands the extension at a path a document's
+      # `filters: [title-slides]` can actually resolve, which is the failure that was
+      # reported against 0.2.
+      - name: Install from the published release and render through it
+        run: nix develop --command tests/run-install.sh

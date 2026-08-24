@@ -76,7 +76,9 @@
     {
       devShells = forAllSystems (pkgs: {
         default = pkgs.mkShell {
-          packages = [ (quartoFor pkgs) pkgs.git pkgs.jq ];
+          # curl is here for tests/run-install.sh, which probes for a network before
+          # trying to install from the published release.
+          packages = [ (quartoFor pkgs) pkgs.git pkgs.jq pkgs.curl ];
           shellHook = ''
             echo "title-slides dev shell — quarto $(quarto --version), pandoc $(pandoc --version | head -1 | cut -d' ' -f2)"
             echo "  tests/run-unit.sh    unit tests over the AST"
