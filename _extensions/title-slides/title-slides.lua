@@ -127,6 +127,17 @@ local function continuation_of(header, taken)
   return pandoc.Header(header.level, header.content, attr)
 end
 
+--- Was this heading put there by the extension rather than by the author?
+-- The carry must only ever adopt the author's own titles. An index heading sits at the
+-- slide level, which is exactly what the carry looks for, so without this a continuation
+-- after a section could inherit the index's title — silently, and only in decks using
+-- both features. Today the carry runs first and never sees one; this keeps that from
+-- being the only thing standing between the two features.
+local function is_generated(header)
+  return header.classes:includes("title-slides-index")
+    or header.classes:includes("title-slides-continuation")
+end
+
 --- Is this a section heading — one that Quarto renders as a section slide?
 -- A section is a top-level heading *below* the slide level: `#` when slides start at
 -- `##`. At `slide-level: 1` or `0` no heading is below it, so a deck has no sections and
@@ -216,7 +227,7 @@ local function carry_titles(blocks, slide_level, taken)
   for i, block in ipairs(blocks) do
     out:insert(block)
 
-    if block.t == "Header" then
+    if block.t == "Header" and not is_generated(block) then
       if block.level == slide_level then
         current = block
       elseif block.level < slide_level then
