@@ -38,13 +38,13 @@ local function warn_about_setext_headings()
   end
 end
 
---- Is the extension switched on for this document?
--- Under Quarto the flag is available through `quarto.metadata.get`; under a bare
+--- Is a frontmatter flag switched on for this document?
+-- Under Quarto the value is available through `quarto.metadata.get`; under a bare
 -- `pandoc --lua-filter` there is no `quarto` global, so fall back to the raw metadata.
-local function enabled(meta)
-  local value = meta["title-slides"]
+local function flag(meta, name)
+  local value = meta[name]
   if quarto and quarto.metadata and quarto.metadata.get then
-    local from_quarto = quarto.metadata.get("title-slides")
+    local from_quarto = quarto.metadata.get(name)
     if from_quarto ~= nil then value = from_quarto end
   end
   if value == nil or value == false then return false end
@@ -155,9 +155,20 @@ end
 return {
   {
     Pandoc = function(doc)
-      if not enabled(doc.meta) then return nil end
-      warn_about_setext_headings()
-      doc.blocks = carry_titles(doc.blocks, slide_level_of(doc.meta), taken_identifiers(doc))
+      -- Two independent features, each on its own key. Either switches the filter on;
+      -- a document setting neither renders exactly as it would without the extension.
+      local carry = flag(doc.meta, "title-slides")
+      local index = flag(doc.meta, "show-index")
+      if not carry and not index then return nil end
+
+      local slide_level = slide_level_of(doc.meta)
+      local taken = taken_identifiers(doc)
+
+      if carry then
+        warn_about_setext_headings()
+        doc.blocks = carry_titles(doc.blocks, slide_level, taken)
+      end
+
       return doc
     end,
   },

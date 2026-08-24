@@ -34,6 +34,24 @@ function M.on(extra)
   return meta
 end
 
+--- Metadata that switches the index slides on.
+function M.index_on(extra)
+  local meta = { ["show-index"] = true }
+  for k, v in pairs(extra or {}) do meta[k] = v end
+  return meta
+end
+
+--- The headings of a document carrying `class`, in order.
+function M.marked(doc, class)
+  local found = {}
+  for _, block in ipairs(doc.blocks) do
+    if block.t == "Header" and block.classes:includes(class) then
+      found[#found + 1] = block
+    end
+  end
+  return found
+end
+
 function M.eq(actual, expected, what)
   if actual ~= expected then
     error(string.format("%s: expected %s, got %s",
