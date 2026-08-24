@@ -96,10 +96,12 @@ local function taken_identifiers(doc)
   return taken
 end
 
---- A fresh identifier derived from `header`, of the form `<original>-cont-<n>`.
+--- A fresh identifier derived from `header`, of the form `<original>-<kind>-<n>`.
 -- Headings normally arrive with an identifier pandoc derived from their text; when one
--- has been blanked out, fall back to slugifying the text the same way.
-local function continuation_identifier(header, taken)
+-- has been blanked out, fall back to slugifying the text the same way. Both kinds of
+-- generated heading draw from the same `taken` table, so a deck with continuations and
+-- index slides cannot end up with two of anything.
+local function derived_identifier(header, kind, taken)
   local base = header.identifier
   if base == "" then
     base = pandoc.utils.stringify(header.content):lower():gsub("%s+", "-"):gsub("[^%w%-_]", "")
@@ -107,8 +109,8 @@ local function continuation_identifier(header, taken)
   if base == "" then return "" end
 
   local n = 1
-  while taken[base .. "-cont-" .. n] do n = n + 1 end
-  local identifier = base .. "-cont-" .. n
+  while taken[base .. "-" .. kind .. "-" .. n] do n = n + 1 end
+  local identifier = base .. "-" .. kind .. "-" .. n
   taken[identifier] = true
   return identifier
 end
@@ -119,10 +121,91 @@ end
 -- which is what stops the repeated title from filling the TOC.
 local function continuation_of(header, taken)
   local attr = pandoc.Attr(
-    continuation_identifier(header, taken),
+    derived_identifier(header, "cont", taken),
     { "title-slides-continuation", "unlisted" },
     {})
   return pandoc.Header(header.level, header.content, attr)
+end
+
+--- Is this a section heading — one that Quarto renders as a section slide?
+-- A section is a top-level heading *below* the slide level: `#` when slides start at
+-- `##`. At `slide-level: 1` or `0` no heading is below it, so a deck has no sections and
+-- `show-index` has nothing to do.
+local function is_section(block, slide_level)
+  return block.t == "Header" and block.level < slide_level
+end
+
+--- Has the author asked for this heading to be kept out of sight?
+-- Both spellings Quarto understands: the `unlisted` class and `visibility="hidden"`. A
+-- hidden section must not be listed in an index, or `show-index` would leak the title of
+-- a slide the author suppressed.
+local function is_hidden(header)
+  if header.classes:includes("unlisted") then return true end
+  return header.attributes["visibility"] == "hidden"
+end
+
+--- The sections an index should list: every visible one, in document order.
+local function sections_of(blocks, slide_level)
+  local sections = pandoc.List()
+  for _, block in ipairs(blocks) do
+    if is_section(block, slide_level) and not is_hidden(block) then
+      sections:insert(block)
+    end
+  end
+  return sections
+end
+
+--- What an index slide is titled: the deck's own title, or `Outline` without one.
+local function index_title(meta)
+  local title = meta.title
+  if title ~= nil and pandoc.utils.stringify(title) ~= "" then
+    local ok, inlines = pcall(pandoc.Inlines, title)
+    if ok then return inlines end
+    return pandoc.Inlines({ pandoc.Str(pandoc.utils.stringify(title)) })
+  end
+  return pandoc.Inlines({ pandoc.Str("Outline") })
+end
+
+--- The blocks of the index slide that goes before section number `current`.
+-- A slide-level heading is what starts a slide, so heading plus list lands as a slide of
+-- its own and the section slide follows unchanged. The entry for the section coming next
+-- is emboldened so it reads in any renderer, and wrapped in a span so it can be restyled
+-- from CSS without touching the filter.
+local function index_slide(sections, current, slide_level, taken, meta)
+  local items = pandoc.List()
+  for i, section in ipairs(sections) do
+    local text = section.content
+    if i == current then
+      text = { pandoc.Span(pandoc.Strong(text), pandoc.Attr("", { "title-slides-index-current" }, {})) }
+    end
+    items:insert({ pandoc.Plain(text) })
+  end
+
+  local attr = pandoc.Attr(
+    derived_identifier(sections[current], "index", taken),
+    { "title-slides-index", "unlisted" },
+    {})
+
+  return { pandoc.Header(slide_level, index_title(meta), attr), pandoc.BulletList(items) }
+end
+
+--- Put an index slide before every section. A pure function over the top-level blocks.
+local function insert_indexes(blocks, slide_level, taken, meta)
+  local sections = sections_of(blocks, slide_level)
+  if #sections == 0 then return blocks end
+
+  local out = pandoc.List()
+  local seen = 0
+  for _, block in ipairs(blocks) do
+    -- Inserted *before* the section heading, unlike the carry, which appends.
+    if is_section(block, slide_level) and not is_hidden(block) then
+      seen = seen + 1
+      out:extend(index_slide(sections, seen, slide_level, taken, meta))
+    end
+    out:insert(block)
+  end
+
+  return out
 end
 
 --- The transform itself: a pure function over a top-level block list.
@@ -167,6 +250,10 @@ return {
       if carry then
         warn_about_setext_headings()
         doc.blocks = carry_titles(doc.blocks, slide_level, taken)
+      end
+
+      if index then
+        doc.blocks = insert_indexes(doc.blocks, slide_level, taken, doc.meta)
       end
 
       return doc
