@@ -115,6 +115,7 @@
           mkdir -p "$HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME"
           bash tests/run-golden.sh
           bash tests/run-smoke.sh
+          bash tests/run-real-deck.sh
           touch "$out"
         '';
       });
