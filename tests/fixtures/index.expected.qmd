@@ -3,37 +3,37 @@ title: "Three parts"
 format: revealjs
 ---
 
+# Beginnings
+
 ## Three parts
 
-- [**Beginnings**]{.title-slides-index-current}
-- Middles
-- Ends
-
-# Beginnings
+- [**First slide**]{.title-slides-index-current}
+- Second slide
+- Third slide
 
 ## First slide
 
 a
 
+# Middles
+
 ## Three parts
 
-- Beginnings
-- [**Middles**]{.title-slides-index-current}
-- Ends
-
-# Middles
+- First slide
+- [**Second slide**]{.title-slides-index-current}
+- Third slide
 
 ## Second slide
 
 b
 
+# Ends
+
 ## Three parts
 
-- Beginnings
-- Middles
-- [**Ends**]{.title-slides-index-current}
-
-# Ends
+- First slide
+- Second slide
+- [**Third slide**]{.title-slides-index-current}
 
 ## Third slide
 

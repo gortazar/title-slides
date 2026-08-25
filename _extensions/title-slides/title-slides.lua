@@ -142,32 +142,57 @@ local function is_generated(header)
     or header.classes:includes("title-slides-continuation")
 end
 
---- Is this a section heading — one that Quarto renders as a section slide?
--- A section is a top-level heading *below* the slide level: `#` when slides start at
--- `##`. At `slide-level: 1` or `0` no heading is below it, so a deck has no sections and
--- `show-index` has nothing to do.
-local function is_section(block, slide_level)
-  return block.t == "Header" and block.level < slide_level
-end
-
 --- Has the author asked for this heading to be kept out of sight?
 -- Both spellings Quarto understands: the `unlisted` class and `visibility="hidden"`. A
--- hidden section must not be listed in an index, or `show-index` would leak the title of
--- a slide the author suppressed.
+-- hidden slide must not be listed in an index, or `show-index` would leak the title of a
+-- slide the author suppressed.
 local function is_hidden(header)
   if header.classes:includes("unlisted") then return true end
   return header.attributes["visibility"] == "hidden"
 end
 
---- The sections an index should list: every visible one, in document order.
-local function sections_of(blocks, slide_level)
-  local sections = pandoc.List()
+--- Is this a heading the index should list?
+-- The index lists the headings that **start slides** — level *S* exactly, `##` at
+-- Quarto's default. Keying it off headings below the slide level, as 0.4 did, indexed the
+-- one level guaranteed *not* to start a slide: `#` is where a deck's title page goes, so
+-- a deck of `##` slides got no index at all.
+--
+-- Generated headings are excluded, and this is load-bearing: a continuation inserted by
+-- the carry sits at the slide level too, so without it a deck using both features would
+-- get an index slide before every continuation and its title repeated down the list.
+local function is_indexed(block, slide_level)
+  return block.t == "Header"
+    and block.level == slide_level
+    and not is_generated(block)
+    and not is_hidden(block)
+end
+
+--- The entries an index lists, in document order.
+-- A run of identical adjacent titles collapses into a single entry, which stays
+-- emphasised for every slide in the run: a deck that continues a topic over three slides
+-- repeats the `##`, and listing it three times makes a faithful list of slides but a poor
+-- agenda. Only *adjacent* repeats collapse — a title that comes back later in the deck is
+-- a separate entry, in its own place in the running order.
+--
+-- Each entry records the heading it shows and how many slides it covers, so the caller
+-- can find the entry a given slide belongs to.
+local function entries_of(blocks, slide_level)
+  local entries = pandoc.List()
+  local previous_title = nil
+
   for _, block in ipairs(blocks) do
-    if is_section(block, slide_level) and not is_hidden(block) then
-      sections:insert(block)
+    if is_indexed(block, slide_level) then
+      local title = pandoc.utils.stringify(block.content)
+      if title == previous_title then
+        entries[#entries].slides = entries[#entries].slides + 1
+      else
+        entries:insert({ heading = block, slides = 1 })
+      end
+      previous_title = title
     end
   end
-  return sections
+
+  return entries
 end
 
 --- What an index slide is titled: the deck's own title, or `Outline` without one.
@@ -181,15 +206,15 @@ local function index_title(meta)
   return pandoc.Inlines({ pandoc.Str("Outline") })
 end
 
---- The blocks of the index slide that goes before section number `current`.
+--- The blocks of the index slide that goes before the slide belonging to entry `current`.
 -- A slide-level heading is what starts a slide, so heading plus list lands as a slide of
--- its own and the section slide follows unchanged. The entry for the section coming next
+-- its own and the author's slide follows unchanged. The entry for the slide coming next
 -- is emboldened so it reads in any renderer, and wrapped in a span so it can be restyled
 -- from CSS without touching the filter.
-local function index_slide(sections, current, slide_level, taken, meta)
+local function index_slide(entries, current, heading, slide_level, taken, meta)
   local items = pandoc.List()
-  for i, section in ipairs(sections) do
-    local text = section.content
+  for i, entry in ipairs(entries) do
+    local text = entry.heading.content
     if i == current then
       text = { pandoc.Span(pandoc.Strong(text), pandoc.Attr("", { "title-slides-index-current" }, {})) }
     end
@@ -197,69 +222,74 @@ local function index_slide(sections, current, slide_level, taken, meta)
   end
 
   local attr = pandoc.Attr(
-    derived_identifier(sections[current], "index", taken),
+    derived_identifier(heading, "index", taken),
     { "title-slides-index", "unlisted" },
     {})
 
   return { pandoc.Header(slide_level, index_title(meta), attr), pandoc.BulletList(items) }
 end
 
---- Why a deck that asked for an index has no sections to build one from.
--- Returns the reason as a phrase, for a document where `sections_of` came back empty.
--- Being specific matters: "no `#` headings" and "every `#` is hidden" send the author to
--- completely different places, and getting neither is what made the original report a bug
--- rather than a question.
-local function no_sections_reason(blocks, slide_level)
-  if slide_level < 2 then
+--- Why a deck that asked for an index has nothing to list.
+-- Returns the reason as a phrase, for a document where `entries_of` came back empty.
+-- Being specific matters: "no `##` headings at all" and "every one of them is hidden" send
+-- the author to completely different places, and getting neither is what made the original
+-- report a bug rather than a question.
+local function nothing_to_index_reason(blocks, slide_level)
+  if slide_level < 1 then
     return string.format(
-      "slide-level is %d, so no heading level is below it and the deck has no sections at all",
+      "slide-level is %d, so no heading starts a slide and there is nothing to list",
       slide_level)
   end
 
+  local marker = string.rep("#", slide_level)
   local total, hidden = 0, 0
   for _, block in ipairs(blocks) do
-    if is_section(block, slide_level) then
+    if block.t == "Header" and block.level == slide_level and not is_generated(block) then
       total = total + 1
       if is_hidden(block) then hidden = hidden + 1 end
     end
   end
 
   if total == 0 then
-    local marker = string.rep("#", slide_level - 1)
     return string.format(
-      "the deck has no section headings — an index goes before each `%s` heading, and there are none",
+      "the deck has no `%s` headings — an index lists the headings that start slides, and there are none",
       marker)
   end
   return string.format(
-    "all %d of the deck's section headings are hidden, by `.unlisted` or `visibility=\"hidden\"`",
-    total)
+    "all %d of the deck's `%s` headings are hidden, by `.unlisted` or `visibility=\"hidden\"`",
+    total, marker)
 end
 
 --- Say so when `show-index` was asked for and there is nothing to index.
--- No index slide is invented for such a deck — that is this entry's decision — so the
--- warning is the whole of the response, and without it the key looks broken.
+-- No index is invented for such a deck, so the warning is the whole of the response, and
+-- without it the key looks broken.
 local function warn_no_index(blocks, slide_level)
+  local marker = slide_level >= 1 and string.rep("#", slide_level) or "##"
   warn(string.format(
     "show-index is set, but no index slide was added: %s. "
-    .. "Add `#` section headings to the deck, or remove `show-index`.",
-    no_sections_reason(blocks, slide_level)))
+    .. "Give the deck `%s` headings, or remove `show-index`.",
+    nothing_to_index_reason(blocks, slide_level), marker))
 end
 
---- Put an index slide before every section. A pure function over the top-level blocks.
+--- Put an index slide before every slide-level heading. A pure function over the blocks.
 local function insert_indexes(blocks, slide_level, taken, meta)
-  local sections = sections_of(blocks, slide_level)
-  if #sections == 0 then
+  local entries = entries_of(blocks, slide_level)
+  if #entries == 0 then
     warn_no_index(blocks, slide_level)
     return blocks
   end
 
   local out = pandoc.List()
-  local seen = 0
+  local entry, remaining = 0, 0
   for _, block in ipairs(blocks) do
-    -- Inserted *before* the section heading, unlike the carry, which appends.
-    if is_section(block, slide_level) and not is_hidden(block) then
-      seen = seen + 1
-      out:extend(index_slide(sections, seen, slide_level, taken, meta))
+    -- Inserted *before* the heading, unlike the carry, which appends after a rule.
+    if is_indexed(block, slide_level) then
+      if remaining == 0 then
+        entry = entry + 1
+        remaining = entries[entry].slides
+      end
+      remaining = remaining - 1
+      out:extend(index_slide(entries, entry, block, slide_level, taken, meta))
     end
     out:insert(block)
   end

@@ -38,21 +38,29 @@ if [ "$continuations" -lt 1 ]; then
 fi
 echo "  ok   $continuations continuation slides carry a title"
 
-# One index slide per section, and no more.
-sections="$(grep -c '^1 slide ' "$work/outline.txt" || true)"
+# One index slide before each slide the author started with a `##`, and no more: not
+# before the continuations the carry inserts, and not before a `#`, which is a title page.
+authored="$(grep -c '^2 slide ' "$work/outline.txt" || true)"
 indexes="$(grep -c '^2 index ' "$work/outline.txt" || true)"
-if [ "$indexes" -ne "$sections" ]; then
-    echo "  FAIL $sections sections but $indexes index slides" >&2
-    exit 1
-fi
+titles="$(grep -c '^1 slide ' "$work/outline.txt" || true)"
 if [ "$indexes" -lt 1 ]; then
     echo "  FAIL no index slide was produced" >&2
     exit 1
 fi
-echo "  ok   $indexes index slides, one per section"
+if [ "$titles" -lt 1 ]; then
+    echo "  FAIL the example deck no longer has a # heading to leave un-indexed" >&2
+    exit 1
+fi
+# One of the deck's slide-level slides is started by a `---` and has no heading, so it
+# gets no index: index slides are one fewer than slide-level slides.
+if [ "$indexes" -ne $((authored - 1)) ]; then
+    echo "  FAIL $authored slide-level slides but $indexes index slides" >&2
+    exit 1
+fi
+echo "  ok   $indexes index slides: one per ## heading, none for the $titles # headings"
 
-# Exactly one entry emboldened on each, and it is the section that comes next: every
-# index line names its current entry, and the line after it is that section's slide.
+# Exactly one entry emboldened on each, and it is the slide that comes next: every index
+# line names its current entry, and the line after it is that slide.
 if grep '^2 index ' "$work/outline.txt" | grep -qv '(1 bold)$'; then
     echo "  FAIL an index slide does not have exactly one bold entry" >&2
     grep '^2 index ' "$work/outline.txt" | grep -v '(1 bold)$' >&2
@@ -61,7 +69,7 @@ fi
 expected=""
 while IFS= read -r line; do
     if [ -n "$expected" ]; then
-        if [ "$line" != "1 slide $expected" ]; then
+        if [ "$line" != "2 slide $expected" ]; then
             echo "  FAIL an index emboldened \"$expected\" but \"$line\" follows it" >&2
             exit 1
         fi
@@ -75,9 +83,9 @@ while IFS= read -r line; do
     esac
 done < "$work/outline.txt"
 if [ -n "$expected" ]; then
-    echo "  FAIL an index slide is the last slide, with no section after it" >&2
+    echo "  FAIL an index slide is the last slide, with no slide after it" >&2
     exit 1
 fi
-echo "  ok   each index emboldens exactly the section it precedes"
+echo "  ok   each index emboldens exactly the slide it precedes"
 
 echo "smoke tests passed"

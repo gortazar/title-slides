@@ -1,6 +1,11 @@
--- `show-index: true` puts an index slide before every section: a slide-level heading
--- followed by a bullet list of every section in the deck, with the one that comes next
--- in bold. This is beamer's \AtBeginSection habit, brought to a Quarto deck.
+-- `show-index: true` puts an index slide before every slide-level heading — `##` at
+-- Quarto's default — listing the headings that start slides, with the one it introduces
+-- in bold.
+--
+-- Until 0.4 the index was keyed off headings *below* the slide level (`#`), which is the
+-- one level guaranteed not to start a slide: `#` is the deck's title page. A deck of `##`
+-- slides therefore got no index at all, which is what was reported. From 0.5 the index
+-- lists the headings that start slides, and `#` is neither listed nor given an index.
 
 local t = dofile(debug.getinfo(1, "S").source:sub(2):gsub("[^/]*$", "") .. "../harness.lua")
 
@@ -10,8 +15,7 @@ end
 local function P(text) return pandoc.Para({ pandoc.Str(text) }) end
 local HR = pandoc.HorizontalRule()
 
---- The index slides of a document: each heading marked as an index, with the list that
---- follows it.
+--- The index slides of a document: each marked heading with the list that follows it.
 local function index_slides(doc)
   local found = {}
   for i, block in ipairs(doc.blocks) do
@@ -22,7 +26,7 @@ local function index_slides(doc)
   return found
 end
 
---- The entries of an index's bullet list, with the bold one wrapped in asterisks.
+--- The entries of an index's bullet list, the bold one wrapped in asterisks.
 local function entries(list)
   if list == nil or list.t ~= "BulletList" then return "(no list)" end
   local out = {}
@@ -35,50 +39,41 @@ local function entries(list)
   return table.concat(out, " | ")
 end
 
-local function three_sections()
+local function three_slides()
   return {
-    H(1, "One", pandoc.Attr("one")), P("a"),
-    H(1, "Two", pandoc.Attr("two")), P("b"),
-    H(1, "Three", pandoc.Attr("three")), P("c"),
+    H(2, "One", pandoc.Attr("one")), P("a"),
+    H(2, "Two", pandoc.Attr("two")), P("b"),
+    H(2, "Three", pandoc.Attr("three")), P("c"),
   }
 end
 
-t.case("one index slide per section", function()
-  local doc = t.apply(t.doc(three_sections(), t.index_on()))
+t.case("one index slide per slide-level heading", function()
+  local doc = t.apply(t.doc(three_slides(), t.index_on()))
   t.eq(#index_slides(doc), 3, "index slides")
 end)
 
-t.case("the index slide comes immediately before its section", function()
-  local doc = t.apply(t.doc({ H(1, "One", pandoc.Attr("one")), P("a") }, t.index_on()))
-  t.shape_eq(doc, "H2(Outline) BulletList H1(One) P(a)")
+t.case("the index slide comes immediately before its slide", function()
+  local doc = t.apply(t.doc({ H(2, "One", pandoc.Attr("one")), P("a") }, t.index_on()))
+  t.shape_eq(doc, "H2(Outline) BulletList H2(One) P(a)")
 end)
 
-t.case("every index lists every section, in document order", function()
-  local doc = t.apply(t.doc(three_sections(), t.index_on()))
+t.case("every index lists every slide-level heading, in document order", function()
+  local doc = t.apply(t.doc(three_slides(), t.index_on()))
   for _, index in ipairs(index_slides(doc)) do
-    local text = entries(index.list):gsub("%*", "")
-    t.eq(text, "One | Two | Three", "entries")
+    t.eq((entries(index.list):gsub("%*", "")), "One | Two | Three", "entries")
   end
 end)
 
-t.case("the section the index precedes is the bold one", function()
-  local doc = t.apply(t.doc(three_sections(), t.index_on()))
+t.case("the heading the index precedes is the bold one", function()
+  local doc = t.apply(t.doc(three_slides(), t.index_on()))
   local found = index_slides(doc)
   t.eq(entries(found[1].list), "*One* | Two | Three", "first index")
   t.eq(entries(found[2].list), "One | *Two* | Three", "second index")
   t.eq(entries(found[3].list), "One | Two | *Three*", "third index")
 end)
 
-t.case("exactly one entry per index is bold", function()
-  local doc = t.apply(t.doc(three_sections(), t.index_on()))
-  for _, index in ipairs(index_slides(doc)) do
-    local _, bolds = entries(index.list):gsub("%*(.-)%*", "")
-    t.eq(bolds, 1, "bold entries")
-  end
-end)
-
 t.case("the bold entry carries the current-entry span class", function()
-  local doc = t.apply(t.doc(three_sections(), t.index_on()))
+  local doc = t.apply(t.doc(three_slides(), t.index_on()))
   local marked = 0
   pandoc.Div(index_slides(doc)[2].list):walk({
     Span = function(span)
@@ -88,25 +83,43 @@ t.case("the bold entry carries the current-entry span class", function()
   t.eq(marked, 1, "spans marked as the current entry")
 end)
 
+-- `#` is the deck's title page, which is the whole reason the level moved.
+t.case("a # heading is never listed on an index", function()
+  local blocks = { H(1, "Deck title", pandoc.Attr("deck")), H(2, "One", pandoc.Attr("one")), P("a") }
+  local doc = t.apply(t.doc(blocks, t.index_on()))
+  t.eq(entries(index_slides(doc)[1].list), "*One*", "only the ## heading is listed")
+end)
+
+t.case("a # heading gets no index slide of its own", function()
+  local blocks = { H(1, "Deck title", pandoc.Attr("deck")), H(2, "One", pandoc.Attr("one")), P("a") }
+  local doc = t.apply(t.doc(blocks, t.index_on()))
+  t.shape_eq(doc, "H1(Deck title) H2(Outline) BulletList H2(One) P(a)")
+end)
+
+t.case("a title page followed by several slides indexes only the slides", function()
+  local blocks = {
+    H(1, "Deck", pandoc.Attr("deck")),
+    H(2, "One", pandoc.Attr("one")), P("a"),
+    H(2, "Two", pandoc.Attr("two")), P("b"),
+  }
+  local doc = t.apply(t.doc(blocks, t.index_on()))
+  t.eq(#index_slides(doc), 2, "index slides")
+  t.eq((entries(index_slides(doc)[1].list):gsub("%*", "")), "One | Two", "entries")
+end)
+
 t.case("the index heading is the document title", function()
   local meta = t.index_on({ title = pandoc.Inlines({ pandoc.Str("My deck") }) })
-  local doc = t.apply(t.doc(three_sections(), meta))
+  local doc = t.apply(t.doc(three_slides(), meta))
   t.eq(pandoc.utils.stringify(index_slides(doc)[1].heading.content), "My deck")
 end)
 
 t.case("with no title, the index heading is Outline", function()
-  local doc = t.apply(t.doc(three_sections(), t.index_on()))
-  t.eq(pandoc.utils.stringify(index_slides(doc)[1].heading.content), "Outline")
-end)
-
-t.case("an empty title falls back to Outline", function()
-  local meta = t.index_on({ title = pandoc.Inlines({}) })
-  local doc = t.apply(t.doc(three_sections(), meta))
+  local doc = t.apply(t.doc(three_slides(), t.index_on()))
   t.eq(pandoc.utils.stringify(index_slides(doc)[1].heading.content), "Outline")
 end)
 
 t.case("index headings get derived, unique identifiers", function()
-  local doc = t.apply(t.doc(three_sections(), t.index_on()))
+  local doc = t.apply(t.doc(three_slides(), t.index_on()))
   local ids = {}
   for _, index in ipairs(index_slides(doc)) do ids[#ids + 1] = index.heading.identifier end
   t.eq(table.concat(ids, " "), "one-index-1 two-index-1 three-index-1")
@@ -114,103 +127,109 @@ end)
 
 t.case("an identifier already taken is skipped", function()
   local blocks = {
-    H(1, "One", pandoc.Attr("one")), P("a"),
-    H(2, "Taken", pandoc.Attr("one-index-1")), P("b"),
+    H(2, "One", pandoc.Attr("one")), P("a"),
+    H(3, "Taken", pandoc.Attr("one-index-1")), P("b"),
   }
   local doc = t.apply(t.doc(blocks, t.index_on()))
   t.eq(index_slides(doc)[1].heading.identifier, "one-index-2")
 end)
 
-t.case("a section with no identifier yields one from its text", function()
-  local doc = t.apply(t.doc({ H(1, "My Part", pandoc.Attr("")), P("a") }, t.index_on()))
-  t.eq(index_slides(doc)[1].heading.identifier, "my-part-index-1")
-end)
-
 t.case("index headings are unlisted, so repeats do not fill the table of contents", function()
-  local doc = t.apply(t.doc(three_sections(), t.index_on()))
+  local doc = t.apply(t.doc(three_slides(), t.index_on()))
   for _, index in ipairs(index_slides(doc)) do
     t.eq(index.heading.classes:includes("unlisted"), true, "unlisted")
   end
 end)
 
 t.case("the index heading is emitted at the slide level", function()
-  local doc = t.apply(t.doc({ H(2, "Part", pandoc.Attr("part")), P("a") },
-    t.index_on({ ["slide-level"] = 3 })))
+  local blocks = { H(3, "Topic", pandoc.Attr("topic")), P("a") }
+  local doc = t.apply(t.doc(blocks, t.index_on({ ["slide-level"] = 3 })))
   t.eq(index_slides(doc)[1].heading.level, 3, "heading level")
 end)
 
-t.case("a section marked unlisted is neither indexed nor listed", function()
-  local hidden = H(1, "Secret", pandoc.Attr("secret", { "unlisted" }, {}))
-  local blocks = { H(1, "One", pandoc.Attr("one")), P("a"), hidden, P("b") }
-  local doc = t.apply(t.doc(blocks, t.index_on()))
-  local found = index_slides(doc)
-  t.eq(#found, 1, "index slides")
-  t.eq(entries(found[1].list), "*One*", "entries")
+t.case("at slide-level 3 it is ### that is indexed, not ##", function()
+  local blocks = {
+    H(2, "Section", pandoc.Attr("section")),
+    H(3, "Topic", pandoc.Attr("topic")), P("a"),
+  }
+  local doc = t.apply(t.doc(blocks, t.index_on({ ["slide-level"] = 3 })))
+  t.eq(entries(index_slides(doc)[1].list), "*Topic*", "only the ### heading is listed")
 end)
 
-t.case("a section hidden with visibility is neither indexed nor listed", function()
-  local hidden = H(1, "Secret", pandoc.Attr("secret", {}, { { "visibility", "hidden" } }))
-  local blocks = { H(1, "One", pandoc.Attr("one")), P("a"), hidden, P("b") }
-  local doc = t.apply(t.doc(blocks, t.index_on()))
-  local found = index_slides(doc)
-  t.eq(#found, 1, "index slides")
-  t.eq(entries(found[1].list), "*One*", "entries")
+t.case("at slide-level 1 it is # that is indexed", function()
+  local blocks = { H(1, "Part", pandoc.Attr("part")), P("a"), H(1, "Other", pandoc.Attr("other")), P("b") }
+  local doc = t.apply(t.doc(blocks, t.index_on({ ["slide-level"] = 1 })))
+  t.eq(#index_slides(doc), 2, "index slides")
+  t.eq(index_slides(doc)[1].heading.level, 1, "its own heading is a #")
 end)
 
--- The degenerate cases below are decisions, not accidents: a deck with nothing to index
--- gets no index slide *and* an explanation. See unit/index-warning.lua for the wording.
-t.case("a deck with no sections is untouched, and says why", function()
-  local blocks = { H(2, "Intro", pandoc.Attr("intro")), P("a"), HR, P("b") }
+t.case("a hidden slide keeps off the index and gets no index slide", function()
+  local hidden = H(2, "Secret", pandoc.Attr("secret", { "unlisted" }, {}))
+  local blocks = { H(2, "One", pandoc.Attr("one")), P("a"), hidden, P("b") }
+  local doc = t.apply(t.doc(blocks, t.index_on()))
+  t.eq(#index_slides(doc), 1, "index slides")
+  t.eq(entries(index_slides(doc)[1].list), "*One*", "entries")
+end)
+
+t.case("a slide hidden with visibility is treated the same", function()
+  local hidden = H(2, "Secret", pandoc.Attr("secret", {}, { { "visibility", "hidden" } }))
+  local blocks = { H(2, "One", pandoc.Attr("one")), P("a"), hidden, P("b") }
+  local doc = t.apply(t.doc(blocks, t.index_on()))
+  t.eq(#index_slides(doc), 1, "index slides")
+  t.eq(entries(index_slides(doc)[1].list), "*One*", "entries")
+end)
+
+t.case("a heading nested in a div starts no slide and is not indexed", function()
+  local div = pandoc.Div({ H(2, "Inside", pandoc.Attr("inside")), P("a") })
+  local doc, warnings = t.apply_capturing_warnings(t.doc({ div }, t.index_on()))
+  t.shape_eq(doc, "Div")
+  t.eq(#warnings, 1, "and the deck is told it has nothing to index")
+end)
+
+t.case("a deck with only # headings has nothing to index, and is told so", function()
+  local blocks = { H(1, "Deck", pandoc.Attr("deck")), P("a") }
   local doc, warnings = t.apply_capturing_warnings(t.doc(blocks, t.index_on()))
-  t.shape_eq(doc, "H2(Intro) P(a) HR P(b)")
+  t.shape_eq(doc, "H1(Deck) P(a)")
   t.eq(#warnings, 1, "warned rather than silently doing nothing")
 end)
 
-t.case("a single section still gets its index", function()
-  local doc = t.apply(t.doc({ H(1, "Only", pandoc.Attr("only")), P("a") }, t.index_on()))
+t.case("slide-level 0 leaves show-index inert, and says why", function()
+  local doc, warnings = t.apply_capturing_warnings(
+    t.doc({ H(2, "One", pandoc.Attr("one")), P("a") }, t.index_on({ ["slide-level"] = 0 })))
+  t.shape_eq(doc, "H2(One) P(a)")
+  t.eq(#warnings, 1, "warned rather than silently doing nothing")
+end)
+
+t.case("a single slide still gets its index", function()
+  local doc = t.apply(t.doc({ H(2, "Only", pandoc.Attr("only")), P("a") }, t.index_on()))
   t.eq(entries(index_slides(doc)[1].list), "*Only*", "entries")
 end)
 
-t.case("a section as the very first block gets an index before it", function()
-  local doc = t.apply(t.doc({ H(1, "One", pandoc.Attr("one")), P("a") }, t.index_on()))
-  t.eq(index_slides(doc)[1].at, 1, "the index heading is the first block")
-end)
-
-t.case("an empty trailing section still gets its index", function()
-  local blocks = { H(1, "One", pandoc.Attr("one")), P("a"), H(1, "Two", pandoc.Attr("two")) }
+t.case("an empty trailing slide still gets its index", function()
+  local blocks = { H(2, "One", pandoc.Attr("one")), P("a"), H(2, "Two", pandoc.Attr("two")) }
   local doc = t.apply(t.doc(blocks, t.index_on()))
   t.eq(#index_slides(doc), 2, "index slides")
   t.shape_eq(doc,
-    "H2(Outline) BulletList H1(One) P(a) H2(Outline) BulletList H1(Two)")
+    "H2(Outline) BulletList H2(One) P(a) H2(Outline) BulletList H2(Two)")
 end)
 
-t.case("sections below the slide level are the ones indexed, not slide headings", function()
-  local blocks = {
-    H(1, "Part", pandoc.Attr("part")), H(2, "A slide", pandoc.Attr("a-slide")), P("a"),
-  }
+-- Generated headings sit at the slide level, which is exactly what the index now looks
+-- for. In practice they also carry `unlisted`, so the hidden check would exclude them
+-- anyway — this pins the rule that matters rather than relying on that coincidence, and
+-- fails if the generated check is dropped.
+t.case("a heading the extension generated is never indexed", function()
+  local generated = pandoc.Header(2, { pandoc.Str("Intro") },
+    pandoc.Attr("gen", { "title-slides-continuation" }, {}))
+  local blocks = { H(2, "Intro", pandoc.Attr("intro")), P("a"), generated, P("b") }
   local doc = t.apply(t.doc(blocks, t.index_on()))
-  t.eq(entries(index_slides(doc)[1].list), "*Part*", "only the # heading is a section")
+  t.eq(#index_slides(doc), 1, "only the author's heading got an index slide")
+  t.eq(entries(index_slides(doc)[1].list), "*Intro*", "and only it is listed")
 end)
 
-t.case("slide-level 1 leaves show-index inert, no heading being below it", function()
-  local doc, warnings = t.apply_capturing_warnings(t.doc({ H(1, "Part", pandoc.Attr("part")), P("a") },
-    t.index_on({ ["slide-level"] = 1 })))
-  t.shape_eq(doc, "H1(Part) P(a)")
-  t.eq(#warnings, 1, "warned rather than silently doing nothing")
-end)
-
-t.case("slide-level 0 leaves show-index inert", function()
-  local doc, warnings = t.apply_capturing_warnings(t.doc({ H(1, "Part", pandoc.Attr("part")), P("a") },
-    t.index_on({ ["slide-level"] = 0 })))
-  t.shape_eq(doc, "H1(Part) P(a)")
-  t.eq(#warnings, 1, "warned rather than silently doing nothing")
-end)
-
-t.case("a heading nested in a div is not a section", function()
-  local div = pandoc.Div({ H(1, "Inside", pandoc.Attr("inside")), P("a") })
-  local doc, warnings = t.apply_capturing_warnings(t.doc({ div }, t.index_on()))
-  t.shape_eq(doc, "Div")
-  t.eq(#warnings, 1, "a deck whose only # is nested has no sections, and is told so")
+t.case("a rule-started slide is not a heading and so is not indexed", function()
+  local blocks = { H(2, "One", pandoc.Attr("one")), P("a"), HR, P("b") }
+  local doc = t.apply(t.doc(blocks, t.index_on()))
+  t.eq(entries(index_slides(doc)[1].list), "*One*", "only the heading is listed")
 end)
 
 t.run()

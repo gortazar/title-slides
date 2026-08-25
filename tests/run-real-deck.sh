@@ -32,20 +32,15 @@ echo "real-deck: rendering T4-funciones.qmd through an installed extension"
 # is half of what this test is checking.
 "$QUARTO" render T4-funciones.qmd --to revealjs --output deck.html > render.log 2>&1
 
-# This deck sets show-index: true and has no `#` at all, so there is no index to build.
-# That is correct, and it was also completely silent — which is what got it reported as
-# broken. The deck asking for a feature it cannot have must now be told so, by name.
-if ! grep -q 'show-index' render.log; then
-    echo "  FAIL show-index produced neither an index nor an explanation" >&2
-    cat render.log >&2
+# This is the deck the index rule was changed for. It has fourteen `##` headings and no
+# `#` at all: under the old rule it had "no sections" and got a warning instead of an
+# index; under the current one its `##` headings are exactly what an index lists.
+if grep -q 'show-index is set, but' render.log; then
+    echo "  FAIL show-index still says it has nothing to index" >&2
+    grep 'show-index' render.log >&2
     exit 1
 fi
-if ! grep -q 'no section headings' render.log; then
-    echo "  FAIL the warning does not give the reason there is no index" >&2
-    cat render.log >&2
-    exit 1
-fi
-echo "  ok   show-index explains why this deck gets no index"
+echo "  ok   show-index no longer claims this deck has nothing to index"
 
 "$PANDOC" lua "$tests/deck-outline.lua" "$work/deck.html" > "$work/outline.txt"
 
@@ -56,14 +51,35 @@ else
     exit 1
 fi
 
-# The extension must have added and removed nothing at all on this document.
-for marker in title-slides-continuation title-slides-index; do
-    if grep -q "$marker" "$work/deck.html"; then
-        echo "  FAIL the extension injected $marker into a deck with nothing to do" >&2
-        exit 1
-    fi
-done
-echo "  ok   no continuation and no index slide was injected"
+# The deck has no top-level `---`, so there is still nothing for the carry to do.
+if grep -q 'title-slides-continuation' "$work/deck.html"; then
+    echo "  FAIL a continuation was injected into a deck with no rule to carry across" >&2
+    exit 1
+fi
+echo "  ok   no continuation slide was injected"
+
+# One index slide before each of the fourteen slides, and each names one entry in bold.
+indexes="$(grep -c '^2 index ' "$work/outline.txt" || true)"
+slides="$(grep -c '^2 slide ' "$work/outline.txt" || true)"
+if [ "$indexes" -ne "$slides" ] || [ "$indexes" -ne 14 ]; then
+    echo "  FAIL expected 14 slides each preceded by an index, got $slides and $indexes" >&2
+    exit 1
+fi
+if grep '^2 index ' "$work/outline.txt" | grep -qv '(1 bold)$'; then
+    echo "  FAIL an index slide does not have exactly one bold entry" >&2
+    exit 1
+fi
+echo "  ok   $indexes index slides, one before each of the $slides slides"
+
+# The answered decision: a run of identical adjacent titles is listed once. This deck
+# repeats `Definición` twice and `Parámetros por defecto` three times, one of them with a
+# trailing space, so fourteen slides collapse to nine entries.
+entries="$("$PANDOC" lua "$tests/index-entries.lua" "$work/deck.html")"
+if [ "$entries" -ne 9 ]; then
+    echo "  FAIL expected the fourteen repeated titles to collapse to 9 entries, got $entries" >&2
+    exit 1
+fi
+echo "  ok   the repeated titles collapse to $entries entries"
 
 # This deck repeats headings — `Definición` twice, `Parámetros por defecto` three times,
 # `Retorno de Valores` against `Retorno de valores` — so it arrives full of would-be
@@ -80,17 +96,25 @@ if [ "$total" -ne "$unique" ]; then
 fi
 echo "  ok   $total slides, $unique distinct identifiers despite the repeated headings"
 
-# The same deck with the filter switched off must produce the same slides. This is the
-# strongest available statement of "the extension changed nothing".
+# With the filter switched off the deck must come back to its original fourteen slides:
+# the index slides are the only thing the extension adds here, and nothing else moved.
 sed 's/^title-slides: true$/title-slides: false/; s/^show-index: true$/show-index: false/' \
     T4-funciones.qmd > off.qmd
 "$QUARTO" render off.qmd --to revealjs --output off.html --quiet
 "$PANDOC" lua "$tests/deck-outline.lua" "$work/off.html" > "$work/off-outline.txt"
 
-if diff -u "$work/off-outline.txt" "$work/outline.txt"; then
-    echo "  ok   filter on and filter off give the same slide outline"
+off_slides="$(grep -c '^2 slide ' "$work/off-outline.txt" || true)"
+if [ "$off_slides" -ne 14 ] || grep -q '^2 index ' "$work/off-outline.txt"; then
+    echo "  FAIL with the filter off the deck should be its plain 14 slides" >&2
+    cat "$work/off-outline.txt" >&2
+    exit 1
+fi
+# Every slide the author wrote survives the filter, in the same order.
+grep '^2 slide ' "$work/outline.txt" > "$work/on-slides.txt"
+if diff -u "$work/off-outline.txt" "$work/on-slides.txt"; then
+    echo "  ok   the author's 14 slides are untouched; only index slides were added"
 else
-    echo "  FAIL switching the filter off changes the deck" >&2
+    echo "  FAIL the filter changed the author's own slides" >&2
     exit 1
 fi
 

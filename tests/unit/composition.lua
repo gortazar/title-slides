@@ -81,11 +81,12 @@ t.case("a deck with both keys comes out slide by slide as promised", function()
     H(2, "Later", pandoc.Attr("later")), P("c"), HR, P("d"),
   }
   local doc = t.apply(t.doc(blocks, both()))
+  -- An index before each `##` the author wrote, none before the continuations the carry
+  -- inserted, and none before the `#`, which is a title page rather than a slide.
   t.shape_eq(doc, table.concat({
-    "H2(Intro) P(a) HR H2(Intro) P(b)",
-    "H2(Outline) BulletList",
+    "H2(Outline) BulletList H2(Intro) P(a) HR H2(Intro) P(b)",
     "H1(Part two)",
-    "H2(Later) P(c) HR H2(Later) P(d)",
+    "H2(Outline) BulletList H2(Later) P(c) HR H2(Later) P(d)",
   }, " "))
 end)
 
