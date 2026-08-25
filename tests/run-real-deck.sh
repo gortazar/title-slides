@@ -28,7 +28,24 @@ cp "$deck/T4-funciones.qmd" "$deck/codigus.png" "$work/"
 cd "$work"
 
 echo "real-deck: rendering T4-funciones.qmd through an installed extension"
-"$QUARTO" render T4-funciones.qmd --to revealjs --output deck.html --quiet
+# Deliberately not --quiet: that suppresses Quarto's warnings altogether, and the warning
+# is half of what this test is checking.
+"$QUARTO" render T4-funciones.qmd --to revealjs --output deck.html > render.log 2>&1
+
+# This deck sets show-index: true and has no `#` at all, so there is no index to build.
+# That is correct, and it was also completely silent — which is what got it reported as
+# broken. The deck asking for a feature it cannot have must now be told so, by name.
+if ! grep -q 'show-index' render.log; then
+    echo "  FAIL show-index produced neither an index nor an explanation" >&2
+    cat render.log >&2
+    exit 1
+fi
+if ! grep -q 'no section headings' render.log; then
+    echo "  FAIL the warning does not give the reason there is no index" >&2
+    cat render.log >&2
+    exit 1
+fi
+echo "  ok   show-index explains why this deck gets no index"
 
 "$PANDOC" lua "$tests/deck-outline.lua" "$work/deck.html" > "$work/outline.txt"
 

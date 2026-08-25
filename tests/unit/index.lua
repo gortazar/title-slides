@@ -157,10 +157,13 @@ t.case("a section hidden with visibility is neither indexed nor listed", functio
   t.eq(entries(found[1].list), "*One*", "entries")
 end)
 
-t.case("a deck with no sections is untouched", function()
+-- The degenerate cases below are decisions, not accidents: a deck with nothing to index
+-- gets no index slide *and* an explanation. See unit/index-warning.lua for the wording.
+t.case("a deck with no sections is untouched, and says why", function()
   local blocks = { H(2, "Intro", pandoc.Attr("intro")), P("a"), HR, P("b") }
-  local doc = t.apply(t.doc(blocks, t.index_on()))
+  local doc, warnings = t.apply_capturing_warnings(t.doc(blocks, t.index_on()))
   t.shape_eq(doc, "H2(Intro) P(a) HR P(b)")
+  t.eq(#warnings, 1, "warned rather than silently doing nothing")
 end)
 
 t.case("a single section still gets its index", function()
@@ -190,21 +193,24 @@ t.case("sections below the slide level are the ones indexed, not slide headings"
 end)
 
 t.case("slide-level 1 leaves show-index inert, no heading being below it", function()
-  local doc = t.apply(t.doc({ H(1, "Part", pandoc.Attr("part")), P("a") },
+  local doc, warnings = t.apply_capturing_warnings(t.doc({ H(1, "Part", pandoc.Attr("part")), P("a") },
     t.index_on({ ["slide-level"] = 1 })))
   t.shape_eq(doc, "H1(Part) P(a)")
+  t.eq(#warnings, 1, "warned rather than silently doing nothing")
 end)
 
 t.case("slide-level 0 leaves show-index inert", function()
-  local doc = t.apply(t.doc({ H(1, "Part", pandoc.Attr("part")), P("a") },
+  local doc, warnings = t.apply_capturing_warnings(t.doc({ H(1, "Part", pandoc.Attr("part")), P("a") },
     t.index_on({ ["slide-level"] = 0 })))
   t.shape_eq(doc, "H1(Part) P(a)")
+  t.eq(#warnings, 1, "warned rather than silently doing nothing")
 end)
 
 t.case("a heading nested in a div is not a section", function()
   local div = pandoc.Div({ H(1, "Inside", pandoc.Attr("inside")), P("a") })
-  local doc = t.apply(t.doc({ div }, t.index_on()))
+  local doc, warnings = t.apply_capturing_warnings(t.doc({ div }, t.index_on()))
   t.shape_eq(doc, "Div")
+  t.eq(#warnings, 1, "a deck whose only # is nested has no sections, and is told so")
 end)
 
 t.run()

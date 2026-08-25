@@ -41,6 +41,21 @@ function M.index_on(extra)
   return meta
 end
 
+--- Apply the filter with the warnings it emits captured rather than printed.
+-- The filter reports through `quarto.log.warning` when Quarto is there, so standing up a
+-- stub `quarto` global exercises the real path. It deliberately has no `metadata` field,
+-- which leaves the flag reading to fall back to the document's own metadata, as it does
+-- under a bare `pandoc --lua-filter`.
+function M.apply_capturing_warnings(doc)
+  local warnings = {}
+  local saved = quarto
+  quarto = { log = { warning = function(message) warnings[#warnings + 1] = message end } }
+  local ok, result = pcall(M.apply, doc)
+  quarto = saved
+  if not ok then error(result, 0) end
+  return result, warnings
+end
+
 --- The headings of a document carrying `class`, in order.
 function M.marked(doc, class)
   local found = {}

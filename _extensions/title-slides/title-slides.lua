@@ -9,6 +9,15 @@
 -- sibling module is found whether pandoc is running the filter or a test is loading it.
 local setext = dofile(debug.getinfo(1, "S").source:sub(2):gsub("[^/\\]*$", "") .. "setext.lua")
 
+--- Report a problem to whoever is building the document.
+local function warn(message)
+  if quarto and quarto.log and quarto.log.warning then
+    quarto.log.warning(message)
+  else
+    io.stderr:write("[WARNING] title-slides: ", message, "\n")
+  end
+end
+
 --- Warn about `blabla` immediately followed by `---`, which markdown reads as a heading.
 -- The source is the only place this is visible. Prefer the document Quarto started from:
 -- what pandoc is reading is an intermediate copy with the frontmatter stripped, so its
@@ -27,12 +36,7 @@ local function warn_about_setext_headings()
       local text = handle:read("a")
       handle:close()
       for _, finding in ipairs(setext.find(text)) do
-        local message = setext.message(path, finding)
-        if quarto and quarto.log and quarto.log.warning then
-          quarto.log.warning(message)
-        else
-          io.stderr:write("[WARNING] title-slides: ", message, "\n")
-        end
+        warn(setext.message(path, finding))
       end
     end
   end
@@ -200,10 +204,54 @@ local function index_slide(sections, current, slide_level, taken, meta)
   return { pandoc.Header(slide_level, index_title(meta), attr), pandoc.BulletList(items) }
 end
 
+--- Why a deck that asked for an index has no sections to build one from.
+-- Returns the reason as a phrase, for a document where `sections_of` came back empty.
+-- Being specific matters: "no `#` headings" and "every `#` is hidden" send the author to
+-- completely different places, and getting neither is what made the original report a bug
+-- rather than a question.
+local function no_sections_reason(blocks, slide_level)
+  if slide_level < 2 then
+    return string.format(
+      "slide-level is %d, so no heading level is below it and the deck has no sections at all",
+      slide_level)
+  end
+
+  local total, hidden = 0, 0
+  for _, block in ipairs(blocks) do
+    if is_section(block, slide_level) then
+      total = total + 1
+      if is_hidden(block) then hidden = hidden + 1 end
+    end
+  end
+
+  if total == 0 then
+    local marker = string.rep("#", slide_level - 1)
+    return string.format(
+      "the deck has no section headings — an index goes before each `%s` heading, and there are none",
+      marker)
+  end
+  return string.format(
+    "all %d of the deck's section headings are hidden, by `.unlisted` or `visibility=\"hidden\"`",
+    total)
+end
+
+--- Say so when `show-index` was asked for and there is nothing to index.
+-- No index slide is invented for such a deck — that is this entry's decision — so the
+-- warning is the whole of the response, and without it the key looks broken.
+local function warn_no_index(blocks, slide_level)
+  warn(string.format(
+    "show-index is set, but no index slide was added: %s. "
+    .. "Add `#` section headings to the deck, or remove `show-index`.",
+    no_sections_reason(blocks, slide_level)))
+end
+
 --- Put an index slide before every section. A pure function over the top-level blocks.
 local function insert_indexes(blocks, slide_level, taken, meta)
   local sections = sections_of(blocks, slide_level)
-  if #sections == 0 then return blocks end
+  if #sections == 0 then
+    warn_no_index(blocks, slide_level)
+    return blocks
+  end
 
   local out = pandoc.List()
   local seen = 0
