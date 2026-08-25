@@ -8,7 +8,7 @@ Two habits from beamer, brought to a Quarto deck:
 The two are independent — switch on either, or both.
 
 ```sh
-quarto add gortazar/title-slides@v0.3
+quarto add gortazar/title-slides@v0.4
 ```
 
 ## Carried titles
@@ -178,6 +178,11 @@ Style them with the two classes:
 `slide-level: 1` or `slide-level: 0` **no heading is below the slide level**, so the deck
 has no sections and `show-index` does nothing.
 
+**A deck with no sections gets no index and a warning saying so.** No agenda of the
+deck's `##` slides is invented in place of one: an index lists sections, and a deck
+without sections has nothing for it to list. What you get instead is an explanation, so
+that asking for an index and receiving none is never silent.
+
 ## Caveats
 
 **Leave a blank line before `---`.** In markdown, a line of text followed immediately by
@@ -238,7 +243,7 @@ If that says `No extensions are installed in this directory`, that is the whole 
 Install it there:
 
 ```sh
-quarto add gortazar/title-slides@v0.3
+quarto add gortazar/title-slides@v0.4
 ```
 
 You should end up with `_extensions/gortazar/title-slides/` **next to your document**, and
@@ -263,11 +268,46 @@ ERROR: The extension Title Slides is incompatible with this quarto version.
 Loading the extension is not enough; each feature needs its key. `filters: [title-slides]`
 alone does nothing — add `title-slides: true`, `show-index: true`, or both.
 
-If `show-index: true` produces no index slides, the deck probably has no sections: an index
-goes before each `#` heading, and a deck of only `##` slides has none. Likewise a deck with
-no top-level `---` has nothing for `title-slides: true` to carry a title onto. Both keys on
-such a deck are simply inert — `tests/fixtures/real-deck/` is exactly that case, kept as a
-test.
+### `show-index: true` and no index slides
+
+Since 0.4 the extension tells you why, in a warning naming the key:
+
+```
+show-index is set, but no index slide was added: the deck has no section headings
+— an index goes before each `#` heading, and there are none.
+```
+
+**A deck of only `##` slides has no sections, so there is nothing to index.** An index
+slide introduces a section, and sections are `#` headings. This is not a defect and the
+extension does not invent an agenda for such a deck: add `#` headings to group your
+slides, or drop the key. The warning also distinguishes the two other ways to get here —
+every `#` marked `.unlisted` or `visibility="hidden"`, and a `slide-level` of `1` or `0`,
+under which no heading level is below the slide level at all.
+
+If you get **no index and no warning either**, the extension that ran is not this version.
+Check which one is installed, from the directory holding the document:
+
+```sh
+quarto list extensions
+```
+
+`show-index` did not exist before 0.2, and the warning arrived in 0.4. An older install
+ignores the key in complete silence — which is exactly how this was first reported. Update
+with `quarto add gortazar/title-slides@v0.4`.
+
+Two more things worth knowing:
+
+- **`quarto render --quiet` suppresses the warning** along with everything else. Render
+  without it when you are trying to find out why nothing happened.
+- **`show-index:true` with no space after the colon is not YAML.** It is not a mapping
+  entry at all, and Quarto stops with a parse error rather than rendering — so if your
+  deck renders, this is not your problem. (Putting the key under `format: revealjs:`
+  instead of at the top level is *fine*: Quarto folds format metadata into the document's,
+  and the filter sees it either way.)
+
+A deck with no top-level `---` likewise has nothing for `title-slides: true` to carry a
+title onto; that one is silent, since a deck simply having no continuation slides is
+unremarkable. `tests/fixtures/real-deck/` is a deck with neither, kept as a test.
 
 ## Development
 
