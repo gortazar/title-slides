@@ -8,7 +8,7 @@ Two habits from beamer, brought to a Quarto deck:
 The two are independent — switch on either, or both.
 
 ```sh
-quarto add gortazar/title-slides@v0.4
+quarto add gortazar/title-slides@v0.5
 ```
 
 ## Carried titles
@@ -71,12 +71,11 @@ The same slide of the same deck with the extension switched off:
 
 ![The same slide, with no title at all](screenshots/without-title-slides.png)
 
-## An index before every section
+## An index before every slide
 
-`show-index: true` puts an index slide in front of each of the deck's sections — the
-`#` headings Quarto renders as section slides. Every index lists every section, and
-emboldens the one it introduces, so the audience always knows where the deck is and
-where it is going. This is beamer's `\AtBeginSection` habit.
+`show-index: true` puts an index slide in front of each of the deck's slides, listing the
+deck's `##` titles and emboldening the one it introduces, so the audience always knows
+where the deck is and where it is going. This is beamer's `\AtBeginSection` habit.
 
 ````markdown
 ---
@@ -87,24 +86,20 @@ filters:
 show-index: true
 ---
 
-# Beginnings
-
-## First slide
+## Beginnings
 
 ...
 
-# Middles
-
-## Second slide
+## Middles
 
 ...
 ````
 
-Before `# Beginnings` and again before `# Middles`, you get:
+Before `## Beginnings` and again before `## Middles`, you get:
 
-![An index slide with the first section in bold](screenshots/index-first-section.png)
+![An index slide with the first slide title in bold](screenshots/index-first-section.png)
 
-![The same index, with the next section in bold instead](screenshots/index-second-section.png)
+![The same index, with the next slide title in bold instead](screenshots/index-second-section.png)
 
 ## Usage
 
@@ -149,23 +144,35 @@ Attributes written on the original heading — `## Intro {.smaller background-co
 
 ## The index rule, exactly
 
-A **section** is a top-level heading *below* the slide level — `#` by default, which is
-what Quarto renders as a section slide. Before each one, the filter inserts a heading at
-the slide level followed by a bullet list of every section in the deck.
+**The index lists the headings that start slides** — `##` at Quarto's default slide level.
+Before each one, the filter inserts a heading at the slide level followed by a bullet list
+of the deck's titles.
 
-- **The heading** is the document's own `title:`, or `Outline` if it has none.
-- **Every section is listed**, in document order — not just the ones still to come — so
+- **`#` is reserved for the title slide.** A level-1 heading is never listed and never gets
+  an index slide in front of it, so a deck's title page and its `#` dividers are left
+  exactly as written.
+- **The heading** of the index is the document's own `title:`, or `Outline` if it has none.
+- **Every slide title is listed**, in document order — not just the ones still to come — so
   the same list appears each time with the emphasis in a different place.
-- **The entry for the section that follows** is wrapped in `Strong` *and* in a span with
-  the class `title-slides-index-current`, so it is emphasised in any renderer and can be
+- **Repeated adjacent titles are listed once.** A topic continued across three slides
+  under the same `##` gets one entry, emphasised for all three. A title that comes back
+  later in the deck is a separate entry, in its own place in the running order.
+- **The entry for the slide that follows** is wrapped in `Strong` *and* in a span with the
+  class `title-slides-index-current`, so it is emphasised in any renderer and can be
   restyled from CSS.
 - **Entries are plain text**, not links.
-- **Hidden sections are left out.** A `#` heading marked `.unlisted` or
-  `visibility="hidden"` is neither listed nor given an index slide of its own, so
-  `show-index` cannot leak the title of a slide you suppressed.
-- **Identifiers** follow the same scheme as continuations: `<section>-index-<n>`, skipping
+- **Hidden slides are left out.** A heading marked `.unlisted` or `visibility="hidden"` is
+  neither listed nor given an index slide of its own, so `show-index` cannot leak the title
+  of a slide you suppressed.
+- **Continuation slides get no index.** The headings this extension generates are not
+  listed, so using both features together does not put an index before every continuation.
+- **Identifiers** follow the same scheme as continuations: `<slide>-index-<n>`, skipping
   any name already used. Index headings are also `unlisted`, so repeating them never
   fills up a table of contents.
+
+**This doubles the length of a deck**, since every slide gains one in front of it, and
+anything counting slides moves with it — `slide-number: c/t` totals, and any link that
+names a slide by number.
 
 Style them with the two classes:
 
@@ -174,14 +181,13 @@ Style them with the two classes:
 .title-slides-index-current { color: #b5121b; }
 ```
 
-`slide-level` applies here too. The index heading is emitted at the slide level, and at
-`slide-level: 1` or `slide-level: 0` **no heading is below the slide level**, so the deck
-has no sections and `show-index` does nothing.
+`slide-level` applies here too, and the index follows it: at `slide-level: 1` the index
+lists `#` headings and its own heading is a `#`; at `slide-level: 3` it lists `###`. Only
+`slide-level: 0`, where no heading starts a slide at all, leaves it with nothing to list.
 
-**A deck with no sections gets no index and a warning saying so.** No agenda of the
-deck's `##` slides is invented in place of one: an index lists sections, and a deck
-without sections has nothing for it to list. What you get instead is an explanation, so
-that asking for an index and receiving none is never silent.
+**A deck with no slide-starting headings gets no index and a warning saying so** — none
+written, all of them hidden, or `slide-level: 0`. Nothing is invented in its place, so
+asking for an index and receiving none is never silent.
 
 ## Caveats
 
@@ -203,13 +209,10 @@ block, a callout, speaker notes or a block quote is an ordinary horizontal rule 
 left alone; only top-level rules start slides. Likewise, only a top-level `#` counts as
 a section: one nested inside a div is not indexed.
 
-**An index slide joins the preceding section's vertical stack.** Reveal groups the
-slide-level slides that follow a `#` into a vertical stack, and an index slide is a
-slide-level slide sitting just before the next `#`, so that is where it lands in the
-DOM — the first index, which precedes any `#`, is the exception. With Quarto's default
-`navigationMode: linear` this makes no difference to reading the deck: the index appears
-immediately before its section, in order. It does show up in the overview grid, where
-the index sits under the previous section's column rather than starting its own.
+**An index slide shares its slide's vertical stack.** Where a deck uses `#` headings,
+reveal groups the slides under each one into a vertical stack; an index slide sits in the
+same stack as the slide it introduces, immediately before it, which is where it belongs
+both on screen and in the overview grid.
 
 **Supported format: `revealjs`.** That is where `---` breaks and `##` titles behave as
 described.
@@ -243,7 +246,7 @@ If that says `No extensions are installed in this directory`, that is the whole 
 Install it there:
 
 ```sh
-quarto add gortazar/title-slides@v0.4
+quarto add gortazar/title-slides@v0.5
 ```
 
 You should end up with `_extensions/gortazar/title-slides/` **next to your document**, and
@@ -273,16 +276,18 @@ alone does nothing — add `title-slides: true`, `show-index: true`, or both.
 Since 0.4 the extension tells you why, in a warning naming the key:
 
 ```
-show-index is set, but no index slide was added: the deck has no section headings
-— an index goes before each `#` heading, and there are none.
+show-index is set, but no index slide was added: the deck has no `##` headings —
+an index lists the headings that start slides, and there are none.
 ```
 
-**A deck of only `##` slides has no sections, so there is nothing to index.** An index
-slide introduces a section, and sections are `#` headings. This is not a defect and the
-extension does not invent an agenda for such a deck: add `#` headings to group your
-slides, or drop the key. The warning also distinguishes the two other ways to get here —
-every `#` marked `.unlisted` or `visibility="hidden"`, and a `slide-level` of `1` or `0`,
-under which no heading level is below the slide level at all.
+**A deck with no `##` headings has nothing to index.** From 0.5 the index lists the
+headings that start slides, so a deck of `##` slides — the ordinary kind — is indexed, and
+what is left to warn about is a deck with no slide-starting headings at all: none written,
+every one marked `.unlisted` or `visibility="hidden"`, or `slide-level: 0`, under which no
+heading starts a slide. The warning says which of the three it is.
+
+Before 0.5 the index was keyed off `#` headings, so a deck of `##` slides got no index;
+if that is what you are seeing, update.
 
 If you get **no index and no warning either**, the extension that ran is not this version.
 Check which one is installed, from the directory holding the document:
@@ -291,9 +296,10 @@ Check which one is installed, from the directory holding the document:
 quarto list extensions
 ```
 
-`show-index` did not exist before 0.2, and the warning arrived in 0.4. An older install
-ignores the key in complete silence — which is exactly how this was first reported. Update
-with `quarto add gortazar/title-slides@v0.4`.
+`show-index` did not exist before 0.2, the warning arrived in 0.4, and 0.5 is what
+indexes `##` headings rather than `#`. An older install ignores the key in complete
+silence — which is exactly how this was first reported. Update with
+`quarto add gortazar/title-slides@v0.5`.
 
 Two more things worth knowing:
 
