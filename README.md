@@ -8,7 +8,7 @@ Two habits from beamer, brought to a Quarto deck:
 The two are independent — switch on either, or both.
 
 ```sh
-quarto add gortazar/title-slides@v0.5
+quarto add gortazar/title-slides@v0.6
 ```
 
 ## Carried titles
@@ -246,7 +246,7 @@ If that says `No extensions are installed in this directory`, that is the whole 
 Install it there:
 
 ```sh
-quarto add gortazar/title-slides@v0.5
+quarto add gortazar/title-slides@v0.6
 ```
 
 You should end up with `_extensions/gortazar/title-slides/` **next to your document**, and
@@ -299,7 +299,7 @@ quarto list extensions
 `show-index` did not exist before 0.2, the warning arrived in 0.4, and 0.5 is what
 indexes `##` headings rather than `#`. An older install ignores the key in complete
 silence — which is exactly how this was first reported. Update with
-`quarto add gortazar/title-slides@v0.5`.
+`quarto add gortazar/title-slides@v0.6`.
 
 Two more things worth knowing:
 
@@ -325,7 +325,41 @@ tests/run-smoke.sh     # render example/deck.qmd and check the slides that come 
 tests/run-real-deck.sh # a real lecture deck, rendered the way a user renders one
 tests/run-install.sh   # install the published release and render through it (needs network)
 nix flake check        # everything CI runs bar the install test, which needs a network
+nix build .#default    # package the extension
 ```
 
 `example/deck.qmd` is a working deck using both features; every screenshot above comes
 from it.
+
+### Building the release artefact
+
+`nix build .#default` packages the extension. It leaves a `result/` symlink holding
+
+```
+result/_extensions/title-slides/
+├── _extension.yml
+├── setext.lua
+└── title-slides.lua
+```
+
+— the extension exactly as `quarto add` installs it, with no build step of its own: the
+filter is Lua, so "building" here means selecting and staging the files that ship.
+
+To produce the release zip as published, add the two lines that wrap it:
+
+```sh
+nix build .#default
+mkdir -p dist && cp -rL result/_extensions dist/_extensions
+(cd dist && zip -r "../title-slides-0.6.zip" _extensions)
+```
+
+`cp -rL` matters: `result/` is a symlink into the nix store, and the store is read-only, so
+the copy has to dereference. The zip unpacks to `_extensions/title-slides/`, which is what
+makes it unzippable straight into a project.
+
+**This is the release's own recipe**, not a parallel one:
+`.github/workflows/release.yml` runs exactly these commands on a `v*` tag, taking the
+version from the tag name, and uploads the result. Change one and the other needs the same
+change. Built from a given tag's commit, it reproduces that release's asset — same members,
+byte-identical contents. The archive bytes themselves differ, since a zip records
+modification times and the order its members were added.
