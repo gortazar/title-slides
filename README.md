@@ -8,7 +8,7 @@ Two habits from beamer, brought to a Quarto deck:
 The two are independent — switch on either, or both.
 
 ```sh
-quarto add gortazar/title-slides@v0.5
+quarto add gortazar/title-slides@v0.6
 ```
 
 ## Carried titles
@@ -246,7 +246,7 @@ If that says `No extensions are installed in this directory`, that is the whole 
 Install it there:
 
 ```sh
-quarto add gortazar/title-slides@v0.5
+quarto add gortazar/title-slides@v0.6
 ```
 
 You should end up with `_extensions/gortazar/title-slides/` **next to your document**, and
@@ -299,7 +299,7 @@ quarto list extensions
 `show-index` did not exist before 0.2, the warning arrived in 0.4, and 0.5 is what
 indexes `##` headings rather than `#`. An older install ignores the key in complete
 silence — which is exactly how this was first reported. Update with
-`quarto add gortazar/title-slides@v0.5`.
+`quarto add gortazar/title-slides@v0.6`.
 
 Two more things worth knowing:
 
