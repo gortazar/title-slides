@@ -1,5 +1,8 @@
 result
 result-*
+# What the documented release recipe leaves behind, beside result/.
+dist/
+title-slides-*.zip
 .quarto/
 _site/
 tests/out/
